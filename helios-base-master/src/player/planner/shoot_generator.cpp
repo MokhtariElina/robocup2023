@@ -45,6 +45,7 @@
 #include <rcsc/common/server_param.h>
 #include <rcsc/math_util.h>
 #include <rcsc/timer.h>
+// #include <rcsc/player/intercept_table.h>
 
 #define SEARCH_UNTIL_MAX_SPEED_AT_SAME_POINT
 
@@ -156,7 +157,7 @@ ShootGenerator::generate( const WorldModel & wm )
         goal_r.x = wm.self().pos().x + 1.5;
     }
 
-    const int DIST_DIVS = 25;
+    const int DIST_DIVS = 19;
     const double dist_step = std::fabs( goal_l.y - goal_r.y ) / ( DIST_DIVS - 1 );
 
 #ifdef DEBUG_PRINT
@@ -195,7 +196,8 @@ ShootGenerator::generate( const WorldModel & wm )
 
 }
 
-/*-------------------------------------------------------------------*/
+/*-------------------
+ /*-------------------------------------------------------------------*/
 /*!
 
  */
@@ -325,7 +327,9 @@ ShootGenerator::createShoot( const WorldModel & wm,
     dlog.addMessage( Logger::SHOOT,
                      target_point, num, "#ffffff" );
 #endif
+
 }
+
 
 /*-------------------------------------------------------------------*/
 /*!
@@ -339,6 +343,31 @@ ShootGenerator::createShoot( const WorldModel & wm,
                              const double & ball_move_dist )
 {
     const ServerParam & SP = ServerParam::i();
+    bool dir2goal = true;
+    double ErrAngle;
+    double mydir2goal = wm.self().body().degree();
+    ErrAngle = 1 ;
+
+    if ( mydir2goal > 90.0 && mydir2goal < 270.0 )
+        dir2goal = false;
+    
+    if ( !dir2goal )
+        ErrAngle = 4 ;        
+
+    AngleDeg ball2left = (Vector2D(52.5, -7)-wm.ball().pos()).th();
+    AngleDeg ball2Maxleft = ball2left + ErrAngle;
+
+    AngleDeg ball2right = (Vector2D(52.5, 7)-wm.ball().pos()).th();
+    AngleDeg ball2Maxright = ball2right + ErrAngle;
+
+    Vector2D ballpos = (wm.self().isKickable()
+    ? wm.ball().pos()
+    : wm.ball().pos() + wm.ball().vel() );
+    Vector2D Maxleft = Line2D(ballpos,ball2Maxleft).intersection(Line2D(Vector2D(52.5, 7),Vector2D(52.5,-7)));
+    Vector2D Maxright = Line2D(ballpos,ball2Maxright).intersection(Line2D(Vector2D(52.5, 7),Vector2D(52.5,-7)));
+    if(Maxright.y <= Maxleft.y){
+        return false;
+    }
 
     const int ball_reach_step
         = static_cast< int >( std::ceil( calc_length_geom_series( first_ball_speed,
@@ -362,6 +391,11 @@ ShootGenerator::createShoot( const WorldModel & wm,
                    ball_move_dist,
                    ball_reach_step );
 
+#ifdef DEBUG_PRINT
+    dlog.addText( Logger::SHOOT,
+    courses.size() , M_courses.size() );
+#endif
+
     if ( ball_reach_step <= 1 )
     {
         course.ball_reach_step_ = 1;
@@ -377,7 +411,8 @@ ShootGenerator::createShoot( const WorldModel & wm,
 
     const double opponent_x_thr = SP.theirPenaltyAreaLineX() - 30.0;
     const double opponent_y_thr = SP.penaltyAreaHalfWidth();
-
+    if(Maxright.y < -7 || Maxleft.y > 7){
+        return false;
     for ( PlayerObject::Cont::const_iterator o = wm.opponentsFromSelf().begin(),
               end = wm.opponentsFromSelf().end();
           o != end;
@@ -426,7 +461,9 @@ ShootGenerator::createShoot( const WorldModel & wm,
 
     M_courses.push_back( course );
     return true;
+//////////////////////////////////////////////
 
+    }
 }
 
 /*-------------------------------------------------------------------*/
@@ -648,7 +685,7 @@ ShootGenerator::opponentCanReach( const PlayerObject * opponent,
                                                   cycle,
                                                   SP.ballDecay() );
 
-        Vector2D inertia_pos = opponent->inertiaPoint( cycle );
+        Vector2D inertia_pos = opponent->inertiaPoint( cycle );//noghte gabr
         double target_dist = inertia_pos.dist( ball_pos );
 
         if ( target_dist - control_area < 0.001 )
@@ -663,13 +700,13 @@ ShootGenerator::opponentCanReach( const PlayerObject * opponent,
             return true;
         }
 
-        double dash_dist = target_dist;
+        double dash_dist = target_dist;//meghdari ke baiad harekat koneh
         if ( cycle > 1 )
         {
             dash_dist -= control_area*0.8;
         }
 
-        int n_dash = ptype->cyclesToReachDistance( dash_dist );
+        int n_dash = ptype->cyclesToReachDistance( dash_dist ); 
 
         if ( n_dash > cycle + opponent->posCount() )
         {
@@ -741,8 +778,10 @@ ShootGenerator::opponentCanReach( const PlayerObject * opponent,
 }
 
 /*-------------------------------------------------------------------*/
-/*!
 
+/*-------------------------------------------------------------------*/
+/*!
+ta
  */
 void
 ShootGenerator::evaluateCourses( const WorldModel & wm )
